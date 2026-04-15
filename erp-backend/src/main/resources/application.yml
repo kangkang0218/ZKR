@@ -1,0 +1,71 @@
+server:
+  port: 8101
+
+spring:
+  jackson:
+    time-zone: GMT+8
+    date-format: yyyy-MM-dd HH:mm:ss
+  application:
+    name: erp-backend
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 200MB
+      max-request-size: 200MB
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/postgres}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:none}
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  web:
+    resources:
+      static-locations: ${SPRING_WEB_RESOURCES_STATIC_LOCATIONS:classpath:/static/,file:${APP_UPLOADS_DIR:./uploads}/}
+  mail:
+    host: ${SPRING_MAIL_HOST:smtp.qq.com}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME:}
+    password: ${SPRING_MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH:true}
+          starttls:
+            enable: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE:true}
+
+# JWT配置
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: 86400000
+  refresh-expiration: 604800000
+
+# File Upload Configuration
+file:
+  upload-dir: ${APP_UPLOADS_DIR:./uploads}
+
+auth:
+  research-initiators: ${AUTH_RESEARCH_INITIATORS:焦淼,jiaomiao,胡军,hujun,任涛,rentao,余文清,yuwenqing}
+  account-domain:
+    finance-usernames: ${AUTH_ACCOUNT_DOMAIN_FINANCE_USERNAMES:}
+  provisioning:
+    admin-user-id: ${AUTH_PROVISION_ADMIN_USER_ID:}
+    admin-username: ${AUTH_PROVISION_ADMIN_USERNAME:Zhangqi}
+    admin-temp-password: ${AUTH_PROVISION_ADMIN_TEMP_PASSWORD:}
+
+mail:
+  from-name: ${MAIL_FROM_NAME:国科九天}
+
+finance:
+  rag:
+    enabled: ${FINANCE_RAG_ENABLED:true}
+    base-url: ${FINANCE_RAG_BASE_URL:http://finance-rag-api:8088}
+    index-name: ${FINANCE_RAG_INDEX_NAME:finance-rag-index}
+    connect-timeout-seconds: ${FINANCE_RAG_CONNECT_TIMEOUT_SECONDS:5}
+    request-timeout-seconds: ${FINANCE_RAG_REQUEST_TIMEOUT_SECONDS:120}

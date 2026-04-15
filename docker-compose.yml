@@ -1,0 +1,138 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - erp-internal
+
+  erp-backend:
+    container_name: zkr-erp-backend
+    image: 127.0.0.1:5555/zhangqi_backend:v1.67
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO}
+      JWT_SECRET: ${JWT_SECRET}
+      APP_UPLOADS_DIR: ${APP_UPLOADS_DIR}
+      SPRING_WEB_RESOURCES_STATIC_LOCATIONS: ${SPRING_WEB_RESOURCES_STATIC_LOCATIONS}
+      AUTH_ACCOUNT_DOMAIN_FINANCE_USERNAMES: ${AUTH_ACCOUNT_DOMAIN_FINANCE_USERNAMES}
+      AUTH_PROVISION_ADMIN_USER_ID: ${AUTH_PROVISION_ADMIN_USER_ID}
+      AUTH_PROVISION_ADMIN_USERNAME: ${AUTH_PROVISION_ADMIN_USERNAME}
+      AUTH_PROVISION_ADMIN_TEMP_PASSWORD: ${AUTH_PROVISION_ADMIN_TEMP_PASSWORD}
+      SPRING_MAIL_HOST: ${SPRING_MAIL_HOST}
+      SPRING_MAIL_PORT: ${SPRING_MAIL_PORT}
+      SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME}
+      SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD}
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH}
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME}
+      FINANCE_RAG_ENABLED: ${FINANCE_RAG_ENABLED:-true}
+      FINANCE_RAG_BASE_URL: ${FINANCE_RAG_BASE_URL:-http://finance-rag-api:8088}
+      FINANCE_RAG_INDEX_NAME: ${FINANCE_RAG_INDEX_NAME:-finance-rag-index}
+      FINANCE_RAG_CONNECT_TIMEOUT_SECONDS: ${FINANCE_RAG_CONNECT_TIMEOUT_SECONDS:-5}
+      FINANCE_RAG_REQUEST_TIMEOUT_SECONDS: ${FINANCE_RAG_REQUEST_TIMEOUT_SECONDS:-120}
+    volumes:
+      - backend-uploads:${APP_UPLOADS_DIR}
+    networks:
+      - erp-internal
+      - runtime-default
+      - rag-isolated
+
+  finance-rag-qdrant:
+    container_name: finance-rag-qdrant
+    image: qdrant/qdrant:v1.13.4
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:36333:6333"
+    volumes:
+      - finance-rag-qdrant-data:/qdrant/storage
+    networks:
+      - rag-isolated
+
+  finance-rag-redis:
+    container_name: finance-rag-redis
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:36379:6379"
+    volumes:
+      - finance-rag-redis-data:/data
+    networks:
+      - rag-isolated
+
+  finance-rag-api:
+    container_name: finance-rag-api
+    build:
+      context: ./rag-service
+    restart: unless-stopped
+    depends_on:
+      - finance-rag-qdrant
+      - finance-rag-redis
+    environment:
+      QDRANT_URL: http://finance-rag-qdrant:6333
+      REDIS_URL: redis://finance-rag-redis:6379/0
+      LLM_PROVIDER: ${FINANCE_RAG_LLM_PROVIDER:-ollama}
+      EMBEDDING_PROVIDER: ${FINANCE_RAG_EMBEDDING_PROVIDER:-ollama}
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      OLLAMA_MODEL: ${FINANCE_RAG_OLLAMA_MODEL:-qwen3:8b}
+      OLLAMA_EMBED_MODEL: ${FINANCE_RAG_OLLAMA_EMBED_MODEL:-qwen3-embedding:0.6b}
+      OPENAI_BASE_URL: ${FINANCE_RAG_OPENAI_BASE_URL:-https://api.openai.com/v1}
+      OPENAI_API_KEY: ${FINANCE_RAG_OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${FINANCE_RAG_OPENAI_MODEL:-gpt-4o-mini}
+      OPENAI_EMBED_MODEL: ${FINANCE_RAG_OPENAI_EMBED_MODEL:-text-embedding-3-small}
+      INDEX_NAME: ${FINANCE_RAG_INDEX_NAME:-finance-rag-index}
+      REQUEST_TIMEOUT_SECONDS: 120
+      SEARCH_LIMIT: 5
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:36817:8088"
+    volumes:
+      - finance-rag-cache:/app/cache
+    networks:
+      - rag-isolated
+
+  lab-erp-demo:
+    container_name: zkr-lab-erp-demo
+    image: 127.0.0.1:5555/zhangqi_frontend:v1.100
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PUBLIC_PORT}:80"
+    volumes:
+      - "./lab-erp-demo/nginx.conf:/etc/nginx/conf.d/default.conf:ro"
+      - "${PUBLIC_DOWNLOADS_DIR:?set PUBLIC_DOWNLOADS_DIR}:/srv/public-downloads:ro"
+    networks:
+      - runtime-default
+
+networks:
+  erp-internal:
+    driver: bridge
+  rag-isolated:
+    driver: bridge
+  runtime-default:
+    external: true
+    name: a_default
+
+volumes:
+  postgres-data:
+  backend-uploads:
+  finance-rag-qdrant-data:
+  finance-rag-redis-data:
+  finance-rag-cache:
