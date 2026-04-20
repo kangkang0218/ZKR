@@ -29,6 +29,7 @@ public class LeaderDashboardService {
         return userRoleRepository.existsByUserIdAndRoleAndIsLeaderTrue(userId, role.toUpperCase());
     }
 
+
     @Transactional(readOnly = true)
     public LeaderDashboardResponse getLeaderDashboard(String leaderUserId, String role) {
         String normalizedRole = role.toUpperCase();
