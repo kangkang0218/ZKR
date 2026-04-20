@@ -15,6 +15,10 @@ public class LeaderDashboardResponse {
     private String leaderRole;
     private String leaderName;
     private List<MemberProjectInfo> members;
+    private Integer totalMembers;
+    private Integer activeProjects;
+    private Integer totalWeight;
+    private Double totalEstimatedCost;
 
     @Data
     @Builder
