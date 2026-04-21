@@ -42,6 +42,9 @@ public class User implements UserDetails {
     private String role;
     private String avatar;
 
+    @Column(name = "is_leader")
+    private Boolean isLeader = false;
+
     @Column(name = "hidden_avatar", nullable = false)
     @Builder.Default
     private Boolean hiddenAvatar = false;

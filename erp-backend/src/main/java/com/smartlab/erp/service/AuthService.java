@@ -6,6 +6,7 @@ import com.smartlab.erp.dto.ProvisionUserRequest;
 import com.smartlab.erp.dto.RegisterRequest;
 import com.smartlab.erp.entity.EmailVerificationCode;
 import com.smartlab.erp.entity.User;
+import com.smartlab.erp.entity.UserRole;
 import com.smartlab.erp.enums.AccountDomain;
 import com.smartlab.erp.exception.BusinessException;
 import com.smartlab.erp.exception.PermissionDeniedException;
@@ -27,11 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.Instant;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 /**
  * 认证服务 - 核心业务逻辑
@@ -81,32 +78,6 @@ public class AuthService {
         this.financeReferenceService = financeReferenceService;
     }
 
-    /**
-     * 生成下一个 6 位字符串格式的用户 ID
-     * 逻辑：查询当前最大 ID -> 转数字 +1 -> 格式化回 6 位字符串
-     */
-    private synchronized String generateNextUserId() {
-        // 依据 UserRepository 中的自定义查询获取当前最大 ID
-        String maxId = userRepository.findMaxUserId().orElse("000000");
-        try {
-            int currentNum = Integer.parseInt(maxId);
-            int nextNum = currentNum + 1;
-            return String.format("%06d", nextNum);
-        } catch (NumberFormatException e) {
-            // 容错处理：若数据库存在非法 ID，则从 000001 开始
-            return "000001";
-        }
-    }
-
-    /**
-     * 用户注册逻辑
-     * 接收封装好的 RegisterRequest DTO，并进行参数解构
-     */
-    @Transactional
-    public void register(RegisterRequest request) {
-        throw new PermissionDeniedException("公开注册已关闭，请联系管理员创建账号");
-    }
-
     @Transactional
     public void provisionUser(ProvisionUserRequest request) {
         User operator = getCurrentUser();
@@ -119,18 +90,22 @@ public class AuthService {
 
         String normalizedUsername = request.getUsername().trim();
         String initialPassword = normalizedUsername + "123";
+        String normalizedRole = normalizeRegisterRole(request.getRole());
+
         User user = User.builder()
                 .userId(generateNextUserId())
                 .username(normalizedUsername)
                 .password(passwordEncoder.encode(initialPassword))
                 .name(request.getName().trim())
                 .email(null)
-                .role(normalizeRegisterRole(request.getRole()))
+                .role(normalizedRole)
                 .accountDomain(domain)
+                .isLeader(false)
                 .active(true)
                 .build();
 
         userRepository.save(user);
+
         if (domain == AccountDomain.ERP) {
             financeReferenceService.getOrCreateWallet(user.getUserId());
         }
@@ -150,6 +125,36 @@ public class AuthService {
         currentUser.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(currentUser);
     }
+
+
+    /**
+     * 生成下一个 6 位字符串格式的用户 ID
+     * 逻辑：查询当前最大 ID -> 转数字 +1 -> 格式化回 6 位字符串
+     */
+    private synchronized String generateNextUserId() {
+        // 依据 UserRepository 中的自定义查询获取当前最大 ID
+        String maxId = userRepository.findMaxUserId().orElse("000000");
+        try {
+            int currentNum = Integer.parseInt(maxId);
+            int nextNum = currentNum + 1;
+            return String.format("%06d", nextNum);
+        } catch (NumberFormatException e) {
+            // 容错处理：若数据库存在非法 ID，则从 000001 开始
+            return "000001";
+        }
+    }
+
+
+    /**
+     * 用户注册逻辑
+     * 接收封装好的 RegisterRequest DTO，并进行参数解构
+     */
+    @Transactional
+    public void register(RegisterRequest request) {
+        throw new PermissionDeniedException("公开注册已关闭，请联系管理员创建账号");
+    }
+
+
 
     private String normalizeRegisterRole(String inputRole) {
         if (inputRole == null || inputRole.isBlank()) {

@@ -208,30 +208,23 @@ const currentDate = computed(() => {
   return new Date().toLocaleDateString('zh-CN')
 })
 
+
 const memberCount = computed(() => {
-  return dashboardData.value?.members?.length || 0
+  return dashboardData.value?.totalMembers || 0
 })
 
 const activeProjectCount = computed(() => {
-  if (!dashboardData.value?.members) return 0
-  return dashboardData.value.members.reduce((count, member) => {
-    return count + member.projects.filter(p => p.status === 'ACTIVE').length
-  }, 0)
+  return dashboardData.value?.activeProjects || 0
 })
 
 const totalWeight = computed(() => {
-  if (!dashboardData.value?.members) return 0
-  return dashboardData.value.members.reduce((sum, member) => {
-    return sum + member.totalWeight
-  }, 0)
+  return dashboardData.value?.totalWeight || 0
 })
 
 const totalCost = computed(() => {
-  if (!dashboardData.value?.members) return 0
-  return dashboardData.value.members.reduce((sum, member) => {
-    return sum + member.estimatedCost
-  }, 0)
+  return dashboardData.value?.totalEstimatedCost || 0
 })
+
 
 const defaultAvatar = 'https://api.dicebear.com/7.x/avataaars/svg?seed=default'
 
