@@ -152,7 +152,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Back, Monitor, Cpu, DataAnalysis, Reading } from '@element-plus/icons-vue'
-import { getAllUsers, assignRole } from '@/api/leader'
+import { getAllUsers, assignRole, getCurrentLeader } from '@/api/leader'
 import { useUserStore } from '@/stores/userStore'
 
 const router = useRouter()
@@ -209,11 +209,21 @@ const loadUsers = async () => {
   }
 }
 
+const loadCurrentLeader = async () => {
+  try {
+    const leader = await getCurrentLeader(activeRole.value)
+    currentLeader.value = Object.keys(leader).length > 0 ? leader : null
+  } catch (error) {
+    console.error('加载当前队长失败:', error)
+    currentLeader.value = null
+  }
+}
 // 检查是否是当前队长
 const isCurrentLeader = (user) => {
-  // TODO: 需要从后端获取真正的队长信息
-  return false
+  if (!currentLeader.value || !user.userId) return false
+  return currentLeader.value.userId === user.userId
 }
+
 
 // 确认设置为队长
 const confirmSetLeader = async (user) => {
@@ -235,13 +245,13 @@ const confirmSetLeader = async (user) => {
     })
 
     ElMessage.success('设置队长成功')
-    await loadUsers() // 重新加载
-  } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error(error.response?.data?.message || '设置失败')
-    }
+      await Promise.all([loadUsers(), loadCurrentLeader()])
+    } catch (error) {
+      if (error !== 'cancel') {
+        ElMessage.error(error.response?.data?.message || '设置失败')
+      }
+     }
   }
-}
 
 // 确认取消队长
 const confirmRemoveLeader = async () => {
@@ -265,8 +275,8 @@ const confirmRemoveLeader = async () => {
     })
 
     ElMessage.success('已取消队长身份')
-    currentLeader.value = null
-  } catch (error) {
+    await Promise.all([loadUsers(), loadCurrentLeader()])
+    } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error(error.response?.data?.message || '操作失败')
     }
@@ -277,6 +287,7 @@ const confirmRemoveLeader = async () => {
 const handleRoleChange = async (role) => {
   activeRole.value = role
   searchKeyword.value = ''
+  await loadCurrentLeader()
 }
 
 // 格式化角色名称
@@ -305,7 +316,7 @@ const getRoleTagType = (role) => {
 }
 
 onMounted(async () => {
-  await loadUsers()
+  await Promise.all([loadUsers(), loadCurrentLeader()])
 })
 </script>
 

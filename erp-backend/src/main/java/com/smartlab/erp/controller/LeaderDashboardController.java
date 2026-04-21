@@ -16,14 +16,10 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/leader")
 @RequiredArgsConstructor
-//@CrossOrigin(origins = "*", allowCredentials = "true")
 public class LeaderDashboardController {
 
     private final LeaderDashboardService leaderDashboardService;
 
-    /**
-     * 获取队长工作台数据
-     */
     @GetMapping("/dashboard")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<LeaderDashboardResponse> getLeaderDashboard(
@@ -37,9 +33,6 @@ public class LeaderDashboardController {
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * 检查当前用户是否是某角色的队长
-     */
     @GetMapping("/check-leader")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Map<String, Object>> checkLeaderStatus(
@@ -56,9 +49,13 @@ public class LeaderDashboardController {
         return ResponseEntity.ok(result);
     }
 
-    /**
-     * 为用户分配角色（管理员操作）
-     */
+    @GetMapping("/current-leader")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> getCurrentLeader(@RequestParam String role) {
+        Map<String, Object> leader = leaderDashboardService.getCurrentLeader(role);
+        return ResponseEntity.ok(leader);
+    }
+
     @PostMapping("/assign-role")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> assignRole(@RequestBody AssignRoleRequest request) {
@@ -70,9 +67,6 @@ public class LeaderDashboardController {
         return ResponseEntity.ok().build();
     }
 
-    /**
-     * 移除用户角色（管理员操作）
-     */
     @DeleteMapping("/remove-role")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> removeRole(@RequestBody RemoveRoleRequest request) {

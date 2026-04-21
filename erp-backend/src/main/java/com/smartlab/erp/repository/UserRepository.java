@@ -6,20 +6,22 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface UserRepository extends JpaRepository<User, String> { // 主键是 String
-
-    boolean existsByUsername(String username);
-
-    boolean existsByEmailAndAccountDomain(String email, AccountDomain accountDomain);
+public interface UserRepository extends JpaRepository<User, String> {
 
     Optional<User> findByUsername(String username);
 
-    Optional<User> findByEmailAndAccountDomain(String email, AccountDomain accountDomain);
+    boolean existsByUsername(String username);
 
-    // 🟢 核心补充：查询目前最大的 ID 用于生成下一个
     @Query("SELECT MAX(u.userId) FROM User u")
     Optional<String> findMaxUserId();
+
+    Optional<User> findByEmailAndAccountDomain(String email, AccountDomain accountDomain);
+
+    List<User> findByRoleAndAccountDomain(String role, AccountDomain accountDomain);
+
+    Optional<User> findByRoleAndIsLeaderTrueAndAccountDomain(String role, AccountDomain accountDomain);
 }

@@ -29,6 +29,9 @@ public interface SysProjectMemberRepository extends JpaRepository<SysProjectMemb
 
     boolean existsByProjectIdAndUserUserId(String projectId, String userId);
 
+    @Query("SELECT pm FROM SysProjectMember pm JOIN FETCH pm.user WHERE pm.user.userId IN :userIds")
+    List<SysProjectMember> findByUserIdInWithUser(@Param("userIds") List<String> userIds);
+
     @Modifying
     void deleteByProjectId(String projectId);
 

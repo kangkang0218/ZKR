@@ -1,6 +1,5 @@
 package com.smartlab.erp.dto;
 
-
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -30,9 +29,11 @@ public class LeaderDashboardResponse {
         private String username;
         private String name;
         private String avatar;
+        private Boolean isLeader;
         private List<ProjectParticipation> projects;
         private Integer totalWeight;
         private Double estimatedCost;
+        private Integer projectCount;
     }
 
     @Data
