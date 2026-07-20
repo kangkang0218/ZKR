@@ -6,6 +6,24 @@
 
 ## 最近变更
 
+### 2026-07-20 10:00 — 合并 PR #7（工单修复 + 员工详情弹窗 + 费用审批重构）
+
+**原因：** 合并同事 aurura12 提交的 PR #7，包含工单 4/5/6/7/12 项修复及多项前端功能增强。
+
+**改动位置：**
+- `erp-backend/.../AdminUserController.java` — 新增 `GET /api/admin/users/{userId}/profile` 员工详情接口。
+- `erp-backend/.../SystemRole.java` — 新增 `CI`（群体智能队长）、`BUSINESS`（商务队长）角色。
+- `erp-backend/.../AuthService.java` — JWT 角色集合扩展 CI/BUSINESS。
+- `erp-backend/.../NaturalLanguageParserService.java` — LLM 角色映射扩展。
+- `erp-backend/.../FinanceDividendSheetRepository.java` / `ProjectExpenseRepository.java` — 新增/修正查询方法。
+- `lab-erp-demo/.../WageManagementView.vue` — 新增员工详情弹窗（个人信息、合同文档、考勤日历、报销记录、参与项目、队长身份、分成 7 个 Tab）。
+- `lab-erp-demo/.../ExpenseReviewView.vue` — 重构为月份分组合并显示，新增筛选栏（月份/状态/人员），合并待审批和历史记录，新增反审批功能。
+- `lab-erp-demo/.../LeaderManagementView.vue` / `LeaderDashboardView.vue` / `ManagerDashboard.vue` — 新增 CI（群体智能）、BUSINESS（商务）队长角色 Tab 与入口。
+- `lab-erp-demo/.../ProjectDetail.vue` / `AdminCreateUserView.vue` — `formatRole`/`formatMemberIdentityTag` 新增 CI 角色映射。
+- `lab-erp-demo/.../userStore.js` — 角色信息扩展。
+
+**效果：** 14 个文件，+788/-105 行，工单问题修复，员工工资管理新增多维度详情弹窗，费用审批页面支持月度分组与多条件筛选，队长管理支持群体智能和商务两类新队长角色。
+
 ### 2026-07-17 11:20 — 修复「调增人力成本」保存时报系统内部错误
 
 **原因：** 新增 `ProjectCostAdjustmentType.LABOR` 后，后端代码已能解析并保存，但数据库 `project_cost_adjustment` 表的 check constraint `project_cost_adjustment_adjustment_type_check` 只允许 `HARDWARE`、`SERVER_COMPUTE`、`EXTERNAL_SERVICE`、`REIMBURSEMENT`，未包含 `LABOR`，导致 INSERT 被 PostgreSQL 拒绝。
