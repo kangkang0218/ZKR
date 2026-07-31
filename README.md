@@ -2,9 +2,28 @@
 
 容器化部署的 ERP 系统，包含前端（Vue 3）、后端（Spring Boot）和 RAG 服务（Python）。
 
-**当前版本：** `zhangqi_backend:v1.156` / `zhangqi_frontend:v1.174`
+**当前版本：** `zhangqi_backend:v1.158` / `zhangqi_frontend:v1.175`
 
 ## 最近变更
+
+### 2026-07-31 11:00 — 项目文件管理器三连修复：光标/上传/下载异常
+
+**原因：** 用户反馈三个问题：① 鼠标悬停表格行显示 I-beam 文本光标，② 上传文件报"系统内部错误"，③ 下载文件报"下载失败"。
+
+**根因分析：**
+1. **光标**：`.name-cell` / `.item-name` 未设置 `cursor: pointer`，浏览器默认对文本显示 `cursor: text`
+2. **上传 Content-Type**：前端手动设置 `Content-Type: multipart/form-data` 缺少 boundary，服务端无法解析
+3. **上传 source_id 列过短**：DB 中 `project_file_mapping.source_id` 为 `varchar(64)`，但上传路径含 UUID+中文文件名，超过 64 字符
+4. **上传 source_type check constraint 缺失**：DB check constraint 未包含 `UPLOADED_FILE`，插入被拒绝
+5. **后端异常吞没**：`GlobalExceptionHandler` 缺少 `IllegalArgumentException` 和 `RuntimeException` handler，全部落入泛化 `Exception` handler 返回硬编码"系统内部错误"
+6. **前端 blob 错误提取**：下载/预览使用 `responseType: 'blob'`，错误时 `e.response.data` 为 Blob，未从中解析 JSON 错误消息
+
+**改动位置：**
+- `lab-erp-demo/src/views/ProjectFileManagerView.vue:548-551,758-772` — 光标修复：`.name-cell` / `.item-name` 新增 `cursor: pointer; user-select: none`；上传移除错误 `Content-Type` header；新增 `extractBlobError()` 从 blob 错误响应解析 message
+- `erp-backend/.../GlobalExceptionHandler.java:40-50` — 新增 `IllegalArgumentException`（400，透传消息）和 `RuntimeException`（500，透传消息）handler
+- DB `project_file_mapping` — `source_id` `varchar(64)` → `varchar(512)`；check constraint 新增 `'UPLOADED_FILE'`
+
+**效果：** 光标恢复正常 pointer；上传不再因 header/列宽/constraint 三重问题失败；下载/预览错误消息正确显示。
 
 ### 2026-07-20 09:55 — 部署 PR #7 到 v1.156/v1.174
 
