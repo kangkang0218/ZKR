@@ -18,7 +18,7 @@ services:
 
   erp-backend:
     container_name: zkr-erp-backend
-    image: 127.0.0.1:5555/zhangqi_backend:v1.159
+    image: 127.0.0.1:5555/zhangqi_backend:v1.160
     restart: unless-stopped
     depends_on:
       postgres:
@@ -107,6 +107,7 @@ services:
       OPENAI_MODEL: ${FINANCE_RAG_OPENAI_MODEL:-gpt-4o-mini}
       OPENAI_EMBED_MODEL: ${FINANCE_RAG_OPENAI_EMBED_MODEL:-text-embedding-3-small}
       INDEX_NAME: ${FINANCE_RAG_INDEX_NAME:-finance-rag-index}
+      SEARCH_MODE: ${FINANCE_RAG_SEARCH_MODE:-keyword}
       REQUEST_TIMEOUT_SECONDS: 120
       SEARCH_LIMIT: 5
     extra_hosts:

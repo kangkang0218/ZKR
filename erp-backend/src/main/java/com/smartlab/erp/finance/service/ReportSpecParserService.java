@@ -34,7 +34,8 @@ public class ReportSpecParserService {
             1. 用户说"近 N 个月/近 N 天/本月/上个月/最近一周"等相对时间时，必须结合今天日期换算成具体的 month 或 date 过滤值（in / gte / lte），不要使用相对词。
             2. 没有明确时间或条件就省略 filters。
             3. 维度、度量字段必须严格使用数据源中列出的字段名，不得编造。
-            4. 只输出纯 JSON（不要 Markdown 代码块、不要解释），格式：
+            4. filters 中的每一项必须同时包含 field、op、values，且 values 至少要有 1 个具体值（如 "2026-06"）。如果某个条件无法给出具体过滤值，直接省略该 filter，禁止输出空 values 或缺失 values 的 filter。
+            5. 只输出纯 JSON（不要 Markdown 代码块、不要解释），格式：
             {"title":"报表标题","chartType":"bar","source":"expense_submission","dimensions":["projectName"],"metrics":[{"field":"totalAmount","agg":"sum"}],"filters":[]}
             """;
 

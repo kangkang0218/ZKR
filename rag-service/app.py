@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import re
 import time
 from typing import Any
 
@@ -31,6 +32,9 @@ OPENAI_EMBED_MODEL = env("OPENAI_EMBED_MODEL", "text-embedding-3-small")
 INDEX_NAME = env("INDEX_NAME", "finance-rag-index")
 SEARCH_LIMIT = int(env("SEARCH_LIMIT", "5"))
 REQUEST_TIMEOUT_SECONDS = float(env("REQUEST_TIMEOUT_SECONDS", "120"))
+# keyword: 本地关键词检索（不依赖 embedding 服务，LLM 生成答案）
+# vector: 向量检索（需要可用的 embedding 服务）
+SEARCH_MODE = env("SEARCH_MODE", "keyword").lower()
 
 app = FastAPI(title="finance-rag-sidecar")
 qdrant = QdrantClient(url=QDRANT_URL)
@@ -198,6 +202,78 @@ def search(prompt: str, limit: int) -> list[dict[str, Any]]:
     return rows
 
 
+def blocks_key() -> str:
+    return f"{INDEX_NAME}:blocks"
+
+
+def tokenize(text: str) -> set[str]:
+    """中文/英文混合分词：字母数字整词 + 连续中文双字片段，用于关键词匹配。"""
+    tokens: set[str] = set()
+    for segment in re.findall(r"[A-Za-z0-9_]+|[\u4e00-\u9fff]+", (text or "").lower()):
+        if not segment:
+            continue
+        if len(segment) <= 16:
+            tokens.add(segment)
+        if len(segment) > 1:
+            for index in range(len(segment) - 1):
+                tokens.add(segment[index:index + 2])
+    return tokens
+
+
+def index_blocks_keyword(blocks: list[ContextBlock]) -> int:
+    payload = []
+    for block in blocks:
+        text = normalize_text(block)
+        if not text:
+            continue
+        payload.append(
+            {
+                "title": block.title,
+                "content": block.content,
+                "sourceType": block.sourceType,
+                "sourceKey": block.sourceKey,
+                "text": text,
+            }
+        )
+    if payload:
+        redis_client.set(blocks_key(), json.dumps(payload, ensure_ascii=False))
+    return len(payload)
+
+
+def search_keyword(prompt: str, limit: int) -> list[dict[str, Any]]:
+    stored = redis_client.get(blocks_key())
+    if not stored:
+        return []
+    blocks = json.loads(stored)
+    terms = tokenize(prompt)
+    if not terms:
+        return []
+    scored: list[tuple[int, dict[str, Any]]] = []
+    for block in blocks:
+        haystack = ((block.get("title") or "") + "\n" + (block.get("text") or "")).lower()
+        hits = sum(1 for term in terms if term in haystack)
+        if hits > 0:
+            scored.append((hits, block))
+    scored.sort(key=lambda item: -item[0])
+    rows: list[dict[str, Any]] = []
+    for hits, block in scored[:limit]:
+        source_id = block.get("sourceKey")
+        try:
+            source_id = int(source_id) if source_id is not None and str(source_id).strip() else None
+        except ValueError:
+            source_id = None
+        rows.append(
+            {
+                "title": block.get("title") or "Finance Context",
+                "snippet": block.get("content") or block.get("text") or "",
+                "sourceTable": block.get("sourceType") or "finance_context",
+                "sourceId": source_id,
+                "score": max(1, hits * 10),
+            }
+        )
+    return rows
+
+
 def build_answer(prompt: str, rows: list[dict[str, Any]]) -> str:
     if not rows:
         return (
@@ -295,6 +371,7 @@ def health() -> dict[str, Any]:
         "status": "ok",
         "indexName": INDEX_NAME,
         "collectionExists": INDEX_NAME in collections,
+        "searchMode": SEARCH_MODE,
         "llmProvider": LLM_PROVIDER,
         "embeddingProvider": EMBEDDING_PROVIDER,
         "ollamaBaseUrl": OLLAMA_BASE_URL,
@@ -306,6 +383,14 @@ def health() -> dict[str, Any]:
 
 @app.post("/api/index")
 def index_documents(request: IndexRequest) -> dict[str, Any]:
+    if SEARCH_MODE == "keyword":
+        count = index_blocks_keyword(request.contextBlocks)
+        return {
+            "indexName": INDEX_NAME,
+            "status": "ACTIVE",
+            "documentCount": count,
+            "message": "Business keyword index refreshed from current ERP context",
+        }
     reset_collection()
     count = upsert_blocks(request.contextBlocks)
     return {
@@ -321,8 +406,12 @@ def query_documents(request: QueryRequest) -> dict[str, Any]:
     prompt = request.prompt.strip()
     if not prompt:
         raise HTTPException(status_code=400, detail="prompt is required")
-    upsert_blocks(request.contextBlocks)
-    rows = search(prompt, request.limit or SEARCH_LIMIT)
+    if SEARCH_MODE == "keyword":
+        index_blocks_keyword(request.contextBlocks)
+        rows = search_keyword(prompt, request.limit or SEARCH_LIMIT)
+    else:
+        upsert_blocks(request.contextBlocks)
+        rows = search(prompt, request.limit or SEARCH_LIMIT)
     return {
         "answer": build_answer(prompt, rows),
         "dataRows": rows,

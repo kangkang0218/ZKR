@@ -2,9 +2,22 @@
 
 容器化部署的 ERP 系统，包含前端（Vue 3）、后端（Spring Boot）和 RAG 服务（Python）。
 
-**当前版本：** `zhangqi_backend:v1.159` / `zhangqi_frontend:v1.176`
+**当前版本：** `zhangqi_backend:v1.160` / `zhangqi_frontend:v1.176`
 
 ## 最近变更
+
+### 2026-08-03 16:30 — 修复全局业务检索无反应 + 一句话报表 month 筛选报错
+
+**原因：** ① 运行中的 `finance-rag-api` 容器由旧项目副本（`/home/a/zhangqi/5090/workspace/ZKR`）启动，环境变量是 ollama 默认值（qwen3:8b / qwen3-embedding:4b，请求不可达的 host.docker.internal:11434），且 Qdrant 索引从未建成，导致全局业务检索无数据可用；同时探测确认 **OpenCode AI 网关（https://opencode.ai/zen/go/v1）只提供 /chat/completions，不提供 /embeddings**，向量检索无法使用 text-embedding-3-small。② 一句话报表偶发「筛选 month 缺少过滤值」：大模型输出的 filter 缺少 values，校验器直接抛错终止生成。
+
+**改动位置：**
+- `rag-service/app.py` — 新增关键词检索模式（`SEARCH_MODE=keyword`，默认启用）：`tokenize()` 中英文双字分词，`index_blocks_keyword()`/`search_keyword()` 基于 Redis 存储上下文块做关键词打分，答案仍由 LLM（deepseek-v4-pro）生成；向量模式代码保留（未来接入 embedding 服务可切回）
+- `docker-compose.yml:106` — rag 服务新增 `SEARCH_MODE: ${FINANCE_RAG_SEARCH_MODE:-keyword}` 环境变量
+- `erp-backend/.../finance/service/ReportSpecParserService.java` — system prompt 强化：filter 必须含 field/op/values 且 values≥1 个具体值，无法确定时省略该 filter
+- `erp-backend/.../finance/service/FinanceReportService.java` — 新增 `normalizeFilters()`：解析后自动丢弃 values 为空的 filter（记录日志），保证报表仍能生成
+- 运维：从当前目录重建 rag 三件套接管旧容器；旧副本 `5090/workspace/ZKR` 移至 `5090_backup/ZKR_20260803`
+
+**效果：** 全局业务检索恢复可用（关键词检索 + DeepSeek V4 Pro 生成「结论/依据/建议」）；一句话报表不再因空 filter 报错。当前实际使用模型：LLM=`deepseek-v4-pro`（OpenCode AI），检索=关键词模式（embedding 服务暂无可用供应商）。
 
 ### 2026-08-03 15:30 — 财务「一句话生成可视化报表」功能
 
