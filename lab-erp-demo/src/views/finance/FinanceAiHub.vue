@@ -15,6 +15,9 @@
       <el-tab-pane label="智能助手" name="ai">
         <FinanceAiChatView />
       </el-tab-pane>
+      <el-tab-pane label="一句话报表" name="report">
+        <FinanceReportView />
+      </el-tab-pane>
     </el-tabs>
   </section>
 </template>
@@ -23,6 +26,7 @@
 import { ref } from 'vue'
 import RagSearchView from '@/views/finance/RagSearchView.vue'
 import FinanceAiChatView from '@/views/finance/FinanceAiChatView.vue'
+import FinanceReportView from '@/views/finance/FinanceReportView.vue'
 
 const activeTab = ref('rag')
 </script>

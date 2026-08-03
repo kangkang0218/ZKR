@@ -6,6 +6,24 @@
 
 ## 最近变更
 
+### 2026-08-03 15:30 — 财务「一句话生成可视化报表」功能
+
+**原因：** 用户需求：财务系统支持用一句话自然语言生成可视化报表，图表必须由 LLM 实时渲染，可选的报表描述存库仅用于一键复跑。
+
+**方案：** LLM 生成受限 JSON 报表规格（ReportSpec），Java 白名单校验后查询聚合，ECharts 渲染；不缓存图表结果，每次复跑都由大模型实时生成。
+
+**改动位置：**
+- `erp-backend/.../finance/enums/ReportSource.java` — 数据源白名单（expense_submission/cost_entry/bank_balance），声明可用维度/度量字段并做统一字段抽取
+- `erp-backend/.../finance/service/ReportSpecParserService.java` — 复用 `LlmClient`（OpenCode AI deepseek-v4-pro）将自然语言解析为 ReportSpec JSON，相对时间自动换算为具体月份过滤值
+- `erp-backend/.../finance/service/ReportDataService.java` — 白名单校验（图表/字段/聚合/筛选）+ 内存过滤聚合，行数上限 500
+- `erp-backend/.../finance/service/FinanceReportService.java` + `finance/controller/FinanceReportController.java` — `POST /api/finance/report/generate`、`GET/DELETE /api/finance/report/prompts`（Finance 域）
+- `erp-backend/.../finance/entity/FinanceReportPrompt.java` + `repository/FinanceReportPromptRepository.java` + `db/migration/V20260803_001__create_finance_report_prompt.sql` — 只存 prompt 的历史表
+- `lab-erp-demo/src/api/finance/report.js` — 报表 API 封装
+- `lab-erp-demo/src/views/finance/FinanceReportView.vue` — 一句话输入 + 示例 chips + 保存开关 + 历史记录（复跑/删除）+ echarts@6 渲染（柱状/折线/饼图/数字/表格）+ CSV 导出
+- `lab-erp-demo/src/views/finance/FinanceAiHub.vue:11-21` — 新增「一句话报表」Tab
+
+**效果：** 财务用户可在 AI 业务中心输入如"近三个月各项目费用柱状图"实时生成图表；保存的报表描述可一键复跑获取最新数据，图表始终由 LLM 实时渲染。
+
 ### 2026-07-31 11:00 — 项目文件管理器三连修复：光标/上传/下载异常
 
 **原因：** 用户反馈三个问题：① 鼠标悬停表格行显示 I-beam 文本光标，② 上传文件报"系统内部错误"，③ 下载文件报"下载失败"。
