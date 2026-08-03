@@ -218,7 +218,7 @@ const showExpenseReviewEntry = computed(() => {
 const showServerManagementEntry = computed(() => {
   return userStore.isErpLoggedIn && Boolean(userStore.activeUserInfo?.serverOpsAdmin)
 })
-const showProjectFileManagerEntry = computed(() => userStore.isErpLoggedIn && canAccessProvisioning(userStore.activeUserInfo?.username))
+const showProjectFileManagerEntry = computed(() => userStore.isErpLoggedIn && (userStore.isManager || canAccessProvisioning(userStore.activeUserInfo?.username)))
 const showFullscreenCockpitEntry = computed(() => activeDomain.value === 'FINANCE' && canAccessFinance.value)
 
 const researchInitiatorWhitelist = ['焦淼', '胡军', '任涛', '余文清', 'jiaomiao', 'hujun', 'rentao', 'yuwenqing']

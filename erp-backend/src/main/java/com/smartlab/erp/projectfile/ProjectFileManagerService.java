@@ -36,14 +36,29 @@ public class ProjectFileManagerService {
     @Value("${app.uploads.dir:/app/uploads}")
     private String uploadsDir;
 
-    public List<Map<String, Object>> listProjects() {
-        return projectRepository.findAll().stream().map(p -> {
+    public List<Map<String, Object>> listProjects(boolean admin, String userId) {
+        List<SysProject> projects = admin
+                ? projectRepository.findAll()
+                : projectRepository.findManagedProjects(userId);
+        return projects.stream().map(p -> {
             Map<String, Object> map = new LinkedHashMap<>();
             map.put("projectId", p.getProjectId());
             map.put("name", p.getName());
             map.put("flowType", p.getFlowType());
             return map;
         }).toList();
+    }
+
+    public String getMappingProjectId(Long mappingId) {
+        return mappingRepository.findById(mappingId)
+                .map(ProjectFileMapping::getProjectId)
+                .orElseThrow(() -> new IllegalArgumentException("文件不存在"));
+    }
+
+    public String getFolderProjectId(Long folderId) {
+        return folderRepository.findById(folderId)
+                .map(ProjectFileFolder::getProjectId)
+                .orElseThrow(() -> new IllegalArgumentException("目录不存在"));
     }
 
     @Transactional(readOnly = true)

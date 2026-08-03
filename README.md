@@ -2,7 +2,7 @@
 
 容器化部署的 ERP 系统，包含前端（Vue 3）、后端（Spring Boot）和 RAG 服务（Python）。
 
-**当前版本：** `zhangqi_backend:v1.160` / `zhangqi_frontend:v1.176`
+**当前版本：** `zhangqi_backend:v1.161` / `zhangqi_frontend:v1.177`
 
 ## 容器架构
 

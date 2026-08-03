@@ -153,7 +153,7 @@ const router = createRouter({
       component: ProjectFileManagerView,
       meta: {
         requiresAuth: true,
-        requiresProvisionAdmin: true,
+        allowedRoles: ['ADMIN', 'MANAGER', 'BUSINESS'],
         routeDomain: DOMAIN_ERP
       }
     },
@@ -254,7 +254,7 @@ router.beforeEach((to, from, next) => {
     next('/profile')
   } else if (!canAccessRouteDomain({ accountDomain: currentDomain, to })) {
     next(currentDomain === DOMAIN_ERP ? getErpLandingRoute(currentRole) : getDefaultRouteForDomain(currentDomain))
-  } else if (Array.isArray(allowedRoles) && allowedRoles.length > 0 && !allowedRoles.includes(currentRole)) {
+  } else if (Array.isArray(allowedRoles) && allowedRoles.length > 0 && !allowedRoles.includes(currentRole) && !isProvisionAdmin) {
     next('/manager/dashboard')
   } else {
     next()

@@ -31,6 +31,21 @@ docker inspect zkr-lab-erp-demo --format '{{.Config.Image}}'
 
 ## 已知 Bug 记录
 
+### 2026-08-03 16:22 — 项目文件管理器对负责人开放（仅可见/操作自己负责的项目）
+
+**原因：** 用户需求：左上角「项目文件」按钮原为 Provision Admin 专用（Zhangqi/guojianwen/jiaomiao），要求改为负责人也可见；非白名单负责人只能看到并操作自己负责的项目的项目文件夹（全部操作权限），白名单维持现状。要求复用既有项目可见性机制（不新写权限体系）。
+
+**改动位置：**
+- `erp-backend/.../projectfile/ProjectFileManagerController.java` — 原 `requireProvisionAdmin()` 门禁拆分为：`requireProjectFileAccess()`（白名单放行，否则须为负责人——复用 `SysProjectRepository.findManagedProjects`）、`requireProjectFileAccess(projectId)`（单项目归属校验，非白名单校验 projectId ∈ 其负责项目集合）、`requireMappingAccess(mappingId)`/`requireMappingAccess(ids)`（mapping/目录解析出 projectId 后校验，含批量端点）；`POST /scan` 保持仅白名单
+- `erp-backend/.../projectfile/ProjectFileManagerService.java` — `listProjects()` 改为 `listProjects(boolean admin, String userId)`：白名单返回全部，负责人返回 `findManagedProjects(userId)`；新增 `getMappingProjectId()`/`getFolderProjectId()` 归属解析助手
+- `lab-erp-demo/src/App.vue:221` — 按钮可见性：`isErpLoggedIn && (isManager || canAccessProvisioning(username))`（复用 `userStore.isManager` = role ∈ ADMIN/MANAGER/BUSINESS）
+- `lab-erp-demo/src/router/index.js:154-158,257` — `/admin/project-files` meta 由 `requiresProvisionAdmin` 改为 `allowedRoles: ['ADMIN','MANAGER','BUSINESS']`（复用既有 allowedRoles 守卫分支）；守卫分支 ⑤ 放行条件加 `&& !isProvisionAdmin`，保证白名单用户（如 Zhangqi 角色 DATA_ENGINEER）不受 allowedRoles 拦截
+- 部署：backend `v1.161`、frontend `v1.177`
+
+**验证（真实 JWT 实测）：** 负责人 neibu → `/projects` 仅返回自己 4 个项目、自己项目 tree 200、他人项目 tree 403「仅负责人可操作」；Zhangqi（白名单）→ 全部 35 个项目 + `/scan` 200；BUSINESS 但无负责项目、普通成员 → 403。
+
+**效果：** 项目文件管理器从「仅白名单」开放为「白名单（全量）+ 负责人（仅自己负责的项目，全部操作权限）」；ProjectDetail 只读文件树面板保持仅白名单可见。
+
 ### 2026-08-03 16:30 — 修复全局业务检索无反应 + 一句话报表 month 筛选报错
 
 **原因：** ① 运行中的 `finance-rag-api` 容器由旧项目副本（`/home/a/zhangqi/5090/workspace/ZKR`）启动，环境变量是 ollama 默认值（qwen3:8b / qwen3-embedding:4b，请求不可达的 host.docker.internal:11434），且 Qdrant 索引从未建成，导致全局业务检索无数据可用；同时探测确认 **OpenCode AI 网关（https://opencode.ai/zen/go/v1）只提供 /chat/completions，不提供 /embeddings**，向量检索无法使用 text-embedding-3-small。② 一句话报表偶发「筛选 month 缺少过滤值」：大模型输出的 filter 缺少 values，校验器直接抛错终止生成。
