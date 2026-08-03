@@ -96,6 +96,8 @@ export const useUserStore = defineStore('user', () => {
     const erpErrorMessage = ref('')
     const activeAuthScope = ref(localStorage.getItem(ACTIVE_AUTH_SCOPE_KEY) || '')
     const userBadges = ref([])
+    // 我负责的项目数量（null=未加载，复用 GET /api/projects/managed 判定负责人身份）
+    const managedProjectCount = ref(null)
 
     const activeSession = computed(() => resolveActiveSession({
         activeAuthScope: activeAuthScope.value,
@@ -202,6 +204,21 @@ export const useUserStore = defineStore('user', () => {
         }
     }
 
+    const refreshManagedProjects = async () => {
+        try {
+            const res = await request.get('/api/projects/managed')
+            managedProjectCount.value = Array.isArray(res) ? res.length : 0
+        } catch {
+            managedProjectCount.value = 0
+        }
+    }
+
+    const ensureManagedProjectsLoaded = async () => {
+        if (managedProjectCount.value === null) {
+            await refreshManagedProjects()
+        }
+    }
+
     const registerByDomain = async (registerForm, options) => {
         const { domain, errorState } = options
 
@@ -282,6 +299,7 @@ export const useUserStore = defineStore('user', () => {
     }
 
     const logoutErp = () => {
+        managedProjectCount.value = null
         logoutByDomain({
             tokenState: erpToken,
             userInfoState: erpUserInfo,
@@ -346,6 +364,10 @@ export const useUserStore = defineStore('user', () => {
         isErpLoggedIn,
         isManager,
         hasWrnBadge,
+        managedProjectCount,
+        hasManagedProjects: computed(() => managedProjectCount.value !== null && managedProjectCount.value > 0),
+        refreshManagedProjects,
+        ensureManagedProjectsLoaded,
         fetchBadges,
         login,
         register,

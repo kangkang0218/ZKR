@@ -31,6 +31,20 @@ docker inspect zkr-lab-erp-demo --format '{{.Config.Image}}'
 
 ## 已知 Bug 记录
 
+### 2026-08-03 17:05 — 修复负责人（如 lihaotian，角色 DATA）看不到「项目文件」入口
+
+**原因：** 上一版把前端入口可见性绑在 `userStore.isManager`（role ∈ ADMIN/MANAGER/BUSINESS）上，但负责人是**数据身份**（`sys_project.manager_id` 或 BD/BUSINESS 成员），角色为 DATA/DEV 等的负责人（如 lihaotian，DATA 角色、负责「亦庄_EBOM」）按钮不显示，路由 `allowedRoles` 同样拦截。
+
+**改动位置：**
+- `lab-erp-demo/src/stores/userStore.js` — 新增 `managedProjectCount`（null=未加载）、`hasManagedProjects`（count>0）、`refreshManagedProjects()`（复用 `GET /api/projects/managed`，非管理员返回 `findManagedProjects`）、`ensureManagedProjectsLoaded()`（幂等加载）；`logoutErp` 时重置为 null
+- `lab-erp-demo/src/App.vue:221,370-375` — 按钮条件改为 `isErpLoggedIn && (白名单 || userStore.hasManagedProjects)`（移除 isManager）；`watch(isErpLoggedIn)` 登录时自动刷新
+- `lab-erp-demo/src/router/index.js:150-159,224-282` — `/admin/project-files` meta 由 `allowedRoles` 改为 `requiresProjectFileManager`；守卫改为 async，先 `await ensureManagedProjectsLoaded()` 再判 `!isProvisionAdmin && !hasManagedProjects` 则跳转；allowedRoles 分支恢复原语义
+- 部署：frontend `v1.178`（后端 v1.161 无改动，后端门禁本身数据驱动本就正确）
+
+**验证（真实 JWT 实测）：** lihaotian → `/api/projects/managed` 200 返回「亦庄_EBOM」、文件管理器 `/projects` 200 仅此项目；前端按钮条件与后端门禁完全对齐（白名单 || hasManagedProjects）。
+
+**效果：** 「项目文件」入口改为数据驱动判定，任何有负责项目的用户（无论角色）都能看到入口并只操作自己负责的项目。
+
 ### 2026-08-03 16:22 — 项目文件管理器对负责人开放（仅可见/操作自己负责的项目）
 
 **原因：** 用户需求：左上角「项目文件」按钮原为 Provision Admin 专用（Zhangqi/guojianwen/jiaomiao），要求改为负责人也可见；非白名单负责人只能看到并操作自己负责的项目的项目文件夹（全部操作权限），白名单维持现状。要求复用既有项目可见性机制（不新写权限体系）。

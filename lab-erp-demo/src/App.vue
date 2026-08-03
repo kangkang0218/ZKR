@@ -182,7 +182,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {useUserStore} from '@/stores/userStore'
 import {useRouter, useRoute} from 'vue-router'
 import { FINANCE_ALLOWED_ROLES } from '@/router/financeRoutes'
@@ -218,7 +218,7 @@ const showExpenseReviewEntry = computed(() => {
 const showServerManagementEntry = computed(() => {
   return userStore.isErpLoggedIn && Boolean(userStore.activeUserInfo?.serverOpsAdmin)
 })
-const showProjectFileManagerEntry = computed(() => userStore.isErpLoggedIn && (userStore.isManager || canAccessProvisioning(userStore.activeUserInfo?.username)))
+const showProjectFileManagerEntry = computed(() => userStore.isErpLoggedIn && (canAccessProvisioning(userStore.activeUserInfo?.username) || userStore.hasManagedProjects))
 const showFullscreenCockpitEntry = computed(() => activeDomain.value === 'FINANCE' && canAccessFinance.value)
 
 const researchInitiatorWhitelist = ['焦淼', '胡军', '任涛', '余文清', 'jiaomiao', 'hujun', 'rentao', 'yuwenqing']
@@ -367,6 +367,12 @@ onMounted(() => {
   fetchMessages()
   messagePollTimer.value = window.setInterval(pollNewMessages, 5000)
 })
+
+watch(() => userStore.isErpLoggedIn, (loggedIn) => {
+  if (loggedIn) {
+    userStore.refreshManagedProjects()
+  }
+}, { immediate: true })
 
 let prevUnreadMsgIds = new Set()
 

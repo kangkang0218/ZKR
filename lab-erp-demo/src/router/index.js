@@ -153,7 +153,7 @@ const router = createRouter({
       component: ProjectFileManagerView,
       meta: {
         requiresAuth: true,
-        allowedRoles: ['ADMIN', 'MANAGER', 'BUSINESS'],
+        requiresProjectFileManager: true,
         routeDomain: DOMAIN_ERP
       }
     },
@@ -221,7 +221,7 @@ router.onError(error => {
 })
 
 // 全局路由守卫
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore()
   const activeAuthScope = localStorage.getItem(ACTIVE_AUTH_SCOPE_KEY)
   const authRequired = to.matched.some(routeRecord => routeRecord.meta.requiresAuth)
@@ -254,7 +254,15 @@ router.beforeEach((to, from, next) => {
     next('/profile')
   } else if (!canAccessRouteDomain({ accountDomain: currentDomain, to })) {
     next(currentDomain === DOMAIN_ERP ? getErpLandingRoute(currentRole) : getDefaultRouteForDomain(currentDomain))
-  } else if (Array.isArray(allowedRoles) && allowedRoles.length > 0 && !allowedRoles.includes(currentRole) && !isProvisionAdmin) {
+  } else if (to.meta?.requiresProjectFileManager && !isProvisionAdmin) {
+    // 项目文件管理器：白名单放行；否则须为负责人（复用 GET /api/projects/managed 判定）
+    await userStore.ensureManagedProjectsLoaded()
+    if (!userStore.hasManagedProjects) {
+      next(currentDomain === DOMAIN_ERP ? getErpLandingRoute(currentRole) : getDefaultRouteForDomain(currentDomain))
+    } else {
+      next()
+    }
+  } else if (Array.isArray(allowedRoles) && allowedRoles.length > 0 && !allowedRoles.includes(currentRole)) {
     next('/manager/dashboard')
   } else {
     next()
